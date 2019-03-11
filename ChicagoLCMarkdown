@@ -1,0 +1,154 @@
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include = FALSE}
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(leaflet)
+library(DT)
+learningCenters <-read.csv("Chicago_Early_Learning_Programs.csv")
+lc <- learningCenters[ , c(2, 4,19)]
+```
+
+  Education is one of the most important human rights entitled to everyone. Not only does a solid education expand your global perspective, it also has links to higher wages, increased gender equality, and better health. It creates a cycle of people receiving an education, getting richer, and them sending their kids to become educated. Unfortunately, the reality is that not everyone has access to education. And among those that do, the quality of teaching is not distributed fairly. Some areas have higher quality schools and learning centers than others. So, even if someone went to school, if their educational foundation was not up to par, they may not have as many access to opportunities and benefits as alums from high-caliber schools have. Their salaries may not even be as high compared to if they went to a better school. As a result, this inequality creates a social hierarchy between the wealthier, more-educated citizens and the poorer, less-educated citizens, whose chances of social mobility are consequently slim. 
+  
+  
+  For this project, I chose to research the distribution of early childhood learning centers throughout the city of Chicago. I wanted to see how economic inequality impacted childhood eduction. In this report, I will analyze poverty levels and per capita income for each neighborhood as well as the quality ratings for these centers. I hypothesize that the higher-rated centers would be located in higher-income neighborhoods, showcasing the link between wealth and quality of education. 
+  
+  Here is the list of all the learning centers in Chicago:
+
+```{r echo = FALSE, fig.cap = "Figure 1: Table of Chicago learning centers"}
+DT::datatable(lc, colnames = c("Name", "Address", "Quality Rating"))
+```
+
+  These academic places are an important aid to inspire and engage students in learning. Not only are they important for preschool-age kids, but they are also useful for students up through high school as places to study and receive tutoring outside of school. 
+
+``` {r echo = FALSE, tidy = TRUE, message = FALSE, warning = FALSE, fig.cap = "Figure 2: Map of after-school centers" }
+#save the dataset into a variable
+learningCenters <-read.csv("Chicago_Early_Learning_Programs.csv")
+
+#save the map of chicago into a variable
+areas <- st_read("chicagomap.shp", quiet = TRUE)
+
+#make the map interactive
+#piping
+
+pal <- c("purple", "red", "green", "black", "yellow")
+col <- colorFactor(pal, learningCenters$Quality, n = 5)
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = areas, color = "black", weight = 1) %>%
+  addCircleMarkers(data = learningCenters, popup = paste("Name:", learningCenters$Site.Name, "<br>",
+                                                         "Rating:", learningCenters$Quality, "<br>",
+                                                         "Neighborhood:", areas$community), radius = 1, 
+                        color = col(learningCenters$Quality), stroke = 10, fillOpacity = 0.5) %>%
+  addLegend("bottomleft", colors = pal, labels = c('Bronze', "Gold", "Licensed", "None", "Silver"), title = "Ratings")
+```
+
+    
+  While the above map displays where these centers are located, it does not answer the question. So, I plotted a second map that visualizes the per capita incomes of each neighborhood as well as their poverty levels:
+  
+``` {r echo = FALSE, tidy = TRUE, message = FALSE, warning = FALSE, fig.cap = "Figure 3: Distribution of per capita income and percentage of households below poverty line"}
+p1 <- c("darkred", "red", "orange", "yellow", "green", "blue")
+
+#socioeconomic distribution of chicago neighborhoods
+socEc <- read.csv("Per_Capita_Income.csv")
+
+mybins <- c(0, 20000, 40000, 60000, 80000, 100000, Inf)
+
+p1 <- colorBin("YlOrRd", domain = socEc$PER.CAPITA.INCOME,bins = mybins)
+
+
+#map for socioeconomic distribution
+leaflet(socEc) %>%
+  addTiles() %>%
+  addPolygons(data = areas, color = "black", weight = 1, fillColor = ~p1(socEc$PER.CAPITA.INCOME), opacity = 0.75, fillOpacity = 0.5, stroke = TRUE, popup = paste("Neighborhood: ", socEc$COMMUNITY.AREA.NAME, "<br>",
+                                          "Per Capita Income: $", socEc$PER.CAPITA.INCOME, "<br>",
+                                          "Poverty %: ", socEc$PERCENT.HOUSEHOLDS.BELOW.POVERTY)) %>%
+  addLegend("bottomleft", pal = p1, values = ~PER.CAPITA.INCOME, title = "Per Capita Income")
+
+
+
+```
+  
+  
+  Now that we know more information about the neighborhoods that each center is located in, it's time to put it all together. This is what the distribution of these learning centers across neighborhoods with different socioeconomic levels looks like:
+
+``` {r echo = FALSE, tidy = TRUE, message = FALSE, warning = FALSE, fig.cap = "Figure 4: Distribution of centers across different socioeconomic levels"}
+ 
+#putting it all together
+leaflet(socEc) %>%
+  addTiles() %>%
+  addPolygons(data = areas, color = "black", weight = 1, fillColor = ~p1(socEc$PER.CAPITA.INCOME), opacity = 0.75, fillOpacity = 0.5, stroke = TRUE, popup = paste("Neighborhood: ", socEc$COMMUNITY.AREA.NAME, "<br>",
+                                                                                                                                                                   "Per Capita Income: $", socEc$PER.CAPITA.INCOME, "<br>",
+                                                                                                                                                                   "Poverty %: ", socEc$PERCENT.HOUSEHOLDS.BELOW.POVERTY)) %>%
+  addCircleMarkers(data = learningCenters, popup = paste("Name:", learningCenters$Site.Name, "<br>",
+                                                         "Rating:", learningCenters$Quality, "<br>",
+                                                         "Neighborhood:", areas$community), radius = 1, 
+                   color = col(learningCenters$Quality), stroke = 10, fillOpacity = 0.5) %>%
+  addLegend("bottomleft", pal = p1, values = ~PER.CAPITA.INCOME, title = "Per Capita Income") %>%
+  addLegend("bottomright", colors = pal, labels = c('Bronze', "Gold", "Licensed", "None", "Silver"), title = "Ratings")
+
+```
+  
+ Looking at this last map, neighborhoods that had a per capita income of $40,00+ generally had a higher density of gold-rated early childhood learning centers, with the excpetion of Morgan Park having no centers. Also, the higher the per capita income, the less variety there was for the ratings, meaning that wealthier neighborhoods had almost or entirely all best-quality centers. On the other side of that statement, the less-wealthy neighborhoods either had less learning centers, lesser-quality centers, or both. I conclude that even though these results do not follow my hypothesis exactly, they do follow a general trend that my hypothesis proposes.
+ 
+  The following is my source code for this piece of data journalism:
+
+```{r message = FALSE, warning = FALSE, eval = FALSE}
+#save the dataset into a variable
+learningCenters <-read.csv("Chicago_Early_Learning_Programs.csv")
+
+#save the map of chicago into a variable
+areas <- st_read("chicagomap.shp")
+
+#make the map interactive
+pal <- c("purple", "red", "green", "black", "yellow")
+col <- colorFactor(pal, learningCenters$Quality, n = 5)
+
+p1 <- c("darkred", "red", "orange", "yellow", "green", "blue")
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = areas, color = "black", weight = 1) %>%
+  addCircleMarkers(data = learningCenters, popup = paste("Name:", learningCenters$Site.Name, "<br>",
+                                                         "Rating:", learningCenters$Quality, "<br>",
+                                                         "Neighborhood:", areas$community), radius = 1, 
+                        color = col(learningCenters$Quality), stroke = 10, fillOpacity = 0.5) %>%
+  addLegend("bottomleft", colors = pal, labels = c('Bronze', "Gold", "Licensed", "None", "Silver"), title = "Ratings")
+
+#map for socioeconomic distribution
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = areas, col = p1, popup = paste("Neighborhood: ", socEc$COMMUNITY.AREA.NAME, "<br>",
+                                          "Per Capita Income: $", socEc$PER.CAPITA.INCOME, "<br>",
+                                          "Poverty %: ", socEc$PERCENT.HOUSEHOLDS.BELOW.POVERTY)) %>%
+  addLegend("bottomleft", colors = p1, labels = c("$0k - $19k", "$20k - $39k", "$40k - $59k", "$60k - $79k", "80k - 99k", "$100+k"), title = "Per Capita Income")
+
+#putting it all together
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = areas, col = p1, popup = paste("Neighborhood: ", socEc$COMMUNITY.AREA.NAME, "<br>",
+                                                    "Per Capita Income: $", socEc$PER.CAPITA.INCOME, "<br>",
+                                                    "Poverty %: ", socEc$PERCENT.HOUSEHOLDS.BELOW.POVERTY)) %>%
+  addCircleMarkers(data = learningCenters, popup = paste("Name:", learningCenters$Site.Name, "<br>",
+                                                         "Rating:", learningCenters$Quality, "<br>",
+                                                         "Neighborhood:", areas$community), radius = 1, 
+                   color = col(learningCenters$Quality), stroke = 10, fillOpacity = 0.5) %>%
+  addLegend("bottomleft", colors = p1, labels = c("$0k - $19k", "$20k - $39k", "$40k - $59k", "$60k - $79k", "80k - 99k", "$100+k"), title = "Per Capita Income") %>%
+  addLegend("bottomright", colors = pal, labels = c('Bronze', "Gold", "Licensed", "None", "Silver"), title = "Ratings")
+```
+
+  
+  All my data has been collected from https://data.cityofchicago.org.  
+  
+  Sources:  
+  https://www.givingwhatwecan.org/research/other-causes/education/  
+  https://data.cityofchicago.org/Education/Chicago-Early-Learning-Programs/ck29-hb9r   
+  https://data.cityofchicago.org/Health-Human-Services/Census-Data-Selected-socioeconomic-indicators-in-C/kn9c-c2s2
